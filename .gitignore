@@ -1,0 +1,12 @@
+# secrets: the endpoint and API key live here and must never be committed
+.env
+.env.*
+!.env.example
+# run outputs (traces, forum, agent workspaces) can contain anything the agents saw
+runs/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+build/
+dist/

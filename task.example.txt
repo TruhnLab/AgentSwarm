@@ -1,0 +1,12 @@
+Build a small Python package `mdlite` that converts a subset of Markdown to HTML.
+
+Supported: headings (#..######), paragraphs, **bold**, *italic*, `inline code`, fenced code blocks,
+unordered and ordered lists (one level), links [text](url), and block quotes.
+
+Deliverables in the repository:
+- mdlite/ with a function `convert(text: str) -> str`
+- a command line entry: `python -m mdlite input.md > output.html`
+- tests/ with pytest tests for every supported element and for combinations
+- README.md with usage and the exact list of supported syntax
+
+Split the work, review each other's pull requests, and keep `pytest -q` green on main.
