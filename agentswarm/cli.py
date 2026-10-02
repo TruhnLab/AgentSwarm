@@ -66,7 +66,7 @@ def main(argv=None):
     if a.cmd == "watch":
         return watch(a.run_dir, a.once)
     logging.basicConfig(level=logging.INFO, format=LOG_FORMAT, force=True)
-    for noisy in ("httpx", "openai"):
+    for noisy in ("httpx", "httpx2", "openai"):   # one log line per request otherwise
         logging.getLogger(noisy).setLevel(logging.WARNING)
     asyncio.run(run(a, Settings.load(a.env)))
 
