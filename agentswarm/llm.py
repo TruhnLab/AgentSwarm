@@ -16,9 +16,15 @@ TRANSIENT = (openai.APIConnectionError, openai.APITimeoutError, openai.InternalS
 
 
 class LLM:
-    def __init__(self, settings: Settings):
-        self.client = openai.AsyncOpenAI(base_url=settings.base_url, api_key=settings.api_key, timeout=3600, max_retries=0)
+    def __init__(self, settings: Settings, base_url: str, log: logging.Logger = log):
+        self.client = openai.AsyncOpenAI(base_url=base_url, api_key=settings.api_key, timeout=3600, max_retries=0)
         self.model, self.extra_body, self.keep_reasoning = settings.model, settings.extra_body, settings.keep_reasoning
+        self.log = log
+
+    async def check(self):
+        """One minimal request: raises if the endpoint, the key or the model name is wrong."""
+        kwargs = {"extra_body": self.extra_body} if self.extra_body else {}
+        await self.client.chat.completions.create(model=self.model, messages=[{"role": "user", "content": "Reply with OK."}], **kwargs)
 
     async def chat(self, messages: list[dict], tools: list[dict] | None, seed: int) -> tuple[dict, dict]:
         """One completion. Returns (assistant message for the history, usage dict)."""
@@ -33,7 +39,7 @@ class LLM:
                 break
             except TRANSIENT as e:
                 wait = min(60, 5 * 2**attempt)
-                log.warning("llm transient error (%s); retry in %ds", type(e).__name__, wait)
+                self.log.warning("llm transient error (%s); retry in %ds", type(e).__name__, wait)
                 await asyncio.sleep(wait)
         else:
             raise RuntimeError("model endpoint unreachable after retries")
@@ -51,3 +57,11 @@ class LLM:
                  "completion_tokens": getattr(resp.usage, "completion_tokens", 0) or 0,
                  "finish_reason": choice.finish_reason}
         return msg, usage
+
+
+async def check_endpoints(settings: Settings):
+    """Fail before a long run if any endpoint does not answer (seconds; one tiny request each)."""
+    results = await asyncio.gather(*(LLM(settings, u).check() for u in settings.base_urls), return_exceptions=True)
+    bad = [f"endpoint {i + 1} of {len(results)}: {type(r).__name__}: {str(r)[:300]}" for i, r in enumerate(results) if isinstance(r, Exception)]
+    if bad:
+        raise SystemExit("model endpoint check failed (SWARM_BASE_URL / SWARM_API_KEY / SWARM_MODEL):\n  " + "\n  ".join(bad))

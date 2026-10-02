@@ -33,18 +33,36 @@ Follow a run from another terminal:
 agentswarm watch runs/<name>
 ```
 
+## Several prompts at once
+
+To compare prompt variants, pass several task files. Each prompt gets its own independent swarm (own forum,
+repository and run directory); all run at the same time with the same options and seed.
+
+```bash
+agentswarm run prompts/a.txt prompts/b.txt prompts/c.txt --agents 8 --minutes 120
+```
+
+`SWARM_BASE_URL` may list several endpoints, comma-separated. They are split evenly among the prompts, in the
+order given, so every prompt is served by its own servers: with 6 endpoints and 3 prompts, `a` uses endpoints
+1-2, `b` 3-4 and `c` 5-6, and the agents of a swarm use their endpoints round-robin. The number of endpoints
+must be a multiple of the number of prompts; a single endpoint (a hosted API) is shared by all. With
+self-hosted models, start one server per node and list them node by node. Every endpoint is checked with one
+tiny request before anything starts.
+
+Results land in `runs/sweep_<time>/<prompt name>/`, with one comparison row per prompt in `summary.json`.
+
 ## Options
 
 | flag | default | meaning |
 |---|---|---|
-| `--agents N` | 4 | number of agents |
+| `--agents N` | 4 | number of agents (per prompt) |
 | `--minutes M` | 60 | wall-time budget; agents are stopped at the deadline |
 | `--max-steps S` | 200 | model calls per agent |
 | `--files DIR` | none | starting files (code, data) copied into the workspace |
 | `--check CMD` | none | must pass on the merged tree before a pull request merges, e.g. `pytest -q` |
 | `--no-review` | | merge without another agent's approval |
 | `--no-repo` | | no shared repository; agents cooperate through the forum only |
-| `--out DIR` | `runs/<task>_<time>` | run directory |
+| `--out DIR` | `runs/<task>_<time>` | run directory (several prompts: one subdirectory each) |
 | `--seed N` | 0 | request seeds are derived from it, per agent and step |
 
 Optional settings in `.env`: `SWARM_CONTEXT_TOKENS` (context budget per agent, default 100000),

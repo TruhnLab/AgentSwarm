@@ -1,6 +1,7 @@
 """Settings: the model endpoint, read from the environment or a .env file (never from the repository).
 
-    SWARM_BASE_URL   OpenAI-compatible endpoint, e.g. https://api.example.com/v1
+    SWARM_BASE_URL   OpenAI-compatible endpoint, e.g. https://api.example.com/v1; several, comma-separated,
+                     are used round-robin by the agents (and split among prompts when several are run)
     SWARM_API_KEY    its key (optional for local servers)
     SWARM_MODEL      model name
     SWARM_CONTEXT_TOKENS, SWARM_EXTRA_BODY (JSON), SWARM_KEEP_REASONING   optional, see .env.example
@@ -32,7 +33,7 @@ def read_env_file(path: str) -> dict[str, str]:
 
 @dataclass
 class Settings:
-    base_url: str
+    base_urls: list[str]
     model: str
     api_key: str = field(default="EMPTY", repr=False)   # repr=False: never printed or logged
     context_tokens: int = 100_000
@@ -45,7 +46,7 @@ class Settings:
         missing = [k for k in ("SWARM_BASE_URL", "SWARM_MODEL") if not values.get(k)]
         if missing:
             raise SystemExit(f"missing {', '.join(missing)}: set them in {env_file} (see .env.example) or in the environment")
-        return cls(base_url=values["SWARM_BASE_URL"], model=values["SWARM_MODEL"],
+        return cls(base_urls=[u.strip() for u in values["SWARM_BASE_URL"].split(",") if u.strip()], model=values["SWARM_MODEL"],
                    api_key=values.get("SWARM_API_KEY") or "EMPTY",
                    context_tokens=int(values.get("SWARM_CONTEXT_TOKENS", 100_000)),
                    extra_body=json.loads(values.get("SWARM_EXTRA_BODY") or "{}"),
