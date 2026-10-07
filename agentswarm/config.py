@@ -4,7 +4,7 @@
                      are used round-robin by the agents (and split among prompts when several are run)
     SWARM_API_KEY    its key (optional for local servers)
     SWARM_MODEL      model name
-    SWARM_CONTEXT_TOKENS, SWARM_EXTRA_BODY (JSON), SWARM_KEEP_REASONING   optional, see .env.example
+    SWARM_CONTEXT_TOKENS, SWARM_EXTRA_BODY (JSON), SWARM_KEEP_REASONING, SWARM_VISION   optional, see .env.example
 
 The .env file is parsed here and NOT exported into os.environ, so the key cannot leak into the shells the
 agents run. Real environment variables take precedence over the file.
@@ -39,6 +39,7 @@ class Settings:
     context_tokens: int = 100_000
     extra_body: dict = field(default_factory=dict)
     keep_reasoning: bool = False
+    vision: bool = False   # the model takes images: agents get `view_image` to look at the plots they make
 
     @classmethod
     def load(cls, env_file: str = ".env") -> "Settings":
@@ -50,4 +51,5 @@ class Settings:
                    api_key=values.get("SWARM_API_KEY") or "EMPTY",
                    context_tokens=int(values.get("SWARM_CONTEXT_TOKENS", 100_000)),
                    extra_body=json.loads(values.get("SWARM_EXTRA_BODY") or "{}"),
-                   keep_reasoning=values.get("SWARM_KEEP_REASONING", "") not in ("", "0", "false"))
+                   keep_reasoning=values.get("SWARM_KEEP_REASONING", "") not in ("", "0", "false"),
+                   vision=values.get("SWARM_VISION", "") not in ("", "0", "false"))

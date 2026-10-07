@@ -84,6 +84,8 @@ runs/<name>/
 
 - Every agent has its own working directory with `bash`, `read_file` and `write_file`, plus `forum_post` /
   `forum_read`. New forum posts are appended to each tool result, so nobody has to poll.
+- With a vision model (`SWARM_VISION=1`), agents also get `view_image` and are told to look at the plots they
+  make: the image is attached to their next message.
 - With the shared repository, each workspace is a clone. Agents push branches and use `pr_open`, `pr_list`,
   `pr_diff`, `pr_review`, `pr_merge`. A merge needs another agent's approval and the check command passing
   on the merged tree; checks run in parallel, the push to main is serialised.

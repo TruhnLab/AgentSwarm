@@ -81,6 +81,25 @@ def test_agent_loop_forum_push_and_compaction(tmp_path):
     assert len(after) == 2 and "NOTE: ran echo" in after[1]["content"] and llm.requests[1][1] is None
 
 
+def test_view_image_attaches_the_image_to_the_next_message(tmp_path):
+    png = tmp_path / "plot.png"
+    png.write_bytes(bytes.fromhex("89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489"))   # 1x1 PNG header
+    (tmp_path / "notes.txt").write_text("x")
+    llm = FakeLLM([{"tool_calls": [call("view_image", path="plot.png"), call("view_image", path="notes.txt")]},
+                   {"tool_calls": [call("finish", summary="seen")]}])
+    tools = WorkerTools(str(tmp_path), Forum(str(tmp_path / "f.sqlite")), "agent00", vision=True)
+    assert "view_image" in [t["function"]["name"] for t in tools.specs()]
+    assert "view_image" not in [t["function"]["name"] for t in WorkerTools(str(tmp_path), Forum(str(tmp_path / "g.sqlite")), "agent01").specs()]
+    agent = Agent("agent00", llm, tools, "You are agent00, x", "task", str(tmp_path / "t.jsonl"), 10, 0, 10_000, time.time() + 60)
+    assert asyncio.run(agent.run())["stop"] == "finished"
+    msgs = llm.requests[1][0]
+    assert msgs[-3]["role"] == "tool" and "attached" in msgs[-3]["content"]
+    assert msgs[-2]["role"] == "tool" and msgs[-2]["content"].startswith("error:")
+    assert msgs[-1]["role"] == "user" and msgs[-1]["content"][1]["image_url"]["url"].startswith("data:image/png;base64,")
+    trace = open(tmp_path / "t.jsonl").read()
+    assert "base64" not in trace and '"images": [{"path": "plot.png"' in trace
+
+
 class Collaborators:
     """Two scripted agents that each push a branch, open a PR, approve the other's PR and merge their own.
     They look up PR ids in the forum, as real agents do with pr_list, and wait when the other is not ready."""

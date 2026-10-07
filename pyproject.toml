@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agentswarm"
-version = "0.2.0"
+version = "0.3.0"
 description = "A swarm of identical tool-using LLM agents that cooperate through a shared forum and a shared git repository with pull requests."
 readme = "README.md"
 requires-python = ">=3.10"

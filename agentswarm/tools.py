@@ -5,13 +5,17 @@ environment variable whose name looks like a secret (KEY, TOKEN, SECRET, PASSWOR
 and HOME points at the working directory. The terminal tool `finish` sets `self.result`, which stops the loop.
 """
 import asyncio
+import base64
 import json
+import mimetypes
 import os
 import re
 
 from .forum import Forum
 
 MAX_OUTPUT = 12_000   # chars of tool output kept (head + tail)
+MAX_IMAGE_BYTES = 8_000_000
+IMAGE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
 SECRET_NAME = re.compile(r"KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL", re.I)
 PROCESS_WIDE_KILL = re.compile(r"(?<![\w./-])(pkill|killall)(?![\w-])|(?<![\w./-])kill\s+(-\S+\s+)*(--\s+)?-1(?![\w-])")
 
@@ -34,9 +38,10 @@ def shell_env(workdir: str) -> dict:
 
 
 class Toolbox:
-    def __init__(self, workdir: str):
+    def __init__(self, workdir: str, vision: bool = False):
         self.workdir = workdir
         self.result: str | None = None   # set by a terminal tool
+        self.images: list[dict] = []     # viewed images waiting to be attached to the next message (see Agent.run)
         self.tools = {
             "bash": (spec("bash", "Run a shell command in your working directory (bash, non-interactive). "
                           "Returns stdout, stderr and exit code. Output is truncated if long.",
@@ -48,6 +53,10 @@ class Toolbox:
             "write_file": (spec("write_file", "Create or overwrite a text file (path relative to your working directory).",
                                 {"path": {"type": "string"}, "content": {"type": "string"}}, ["path", "content"]), self.write_file),
         }
+        if vision:
+            self.tools["view_image"] = (spec("view_image", "Look at an image file (PNG, JPEG, WebP; a GIF shows its first frame), "
+                                             "path relative to your working directory. Use it to inspect the plots you make.",
+                                             {"path": {"type": "string"}}, ["path"]), self.view_image)
 
     def specs(self) -> list[dict]:
         return [s for s, _ in self.tools.values()]
@@ -121,12 +130,28 @@ class Toolbox:
         return f"wrote {len(content)} chars to {path}"
 
 
+    async def view_image(self, path: str) -> str:
+        p = self._path(path)
+        mime = mimetypes.guess_type(p)[0]
+        if mime not in IMAGE_TYPES:
+            return f"error: {path} is not a PNG, JPEG, GIF or WebP file"
+        try:
+            data = open(p, "rb").read()
+        except OSError as e:
+            return f"error: {e}"
+        if len(data) > MAX_IMAGE_BYTES:
+            return f"error: {path} is {len(data)} bytes; keep images under {MAX_IMAGE_BYTES} (lower the dpi or figure size)"
+        self.images.append({"path": path, "bytes": len(data),
+                            "url": f"data:{mime};base64,{base64.b64encode(data).decode()}"})
+        return f"[image {path} ({len(data)} bytes) attached to your next message]"
+
+
 class WorkerTools(Toolbox):
     """Sandbox tools + forum + finish. New forum posts are pushed (appended to every tool result), so agents
     never need to poll the forum."""
 
-    def __init__(self, workdir: str, forum: Forum, agent: str):
-        super().__init__(workdir)
+    def __init__(self, workdir: str, forum: Forum, agent: str, vision: bool = False):
+        super().__init__(workdir, vision)
         self.forum, self.agent = forum, agent
         self.seen_post = 0
         self.tools.update({

@@ -37,6 +37,11 @@ Protocol:
 - Call `finish` when nothing useful remains.
 Work in steps: think, act with tools, check results. Do not narrate; act."""
 
+VISION_PROTOCOL = """
+You can see images: `view_image` shows you a PNG/JPEG/GIF from your working directory. Plot what you are working
+on (results, intermediate quantities, failure cases) and look at the plots; a glance at a figure catches what
+summary numbers hide. Regenerate and inspect the plots after every substantial change."""
+
 REPO_PROTOCOL = """
 Shared repository: your working directory is a clone of the shared repo (origin, branch main); every agent has one.
 - Work on a feature branch (git checkout -b <name>), commit, `git push -u origin <name>`, then `pr_open`.
@@ -70,7 +75,7 @@ async def run_swarm(task: str, settings: Settings, out: str, agents: int = 4, mi
         forum = Forum(os.path.join(out, "forum.sqlite"))
         start = time.time()
         deadline = start + 60 * minutes
-        system, repo = SYSTEM, None
+        system, repo = SYSTEM + (VISION_PROTOCOL if settings.vision else ""), None
         if use_repo:
             repo = SharedRepo(out, check)
             await repo.init(files)
@@ -87,7 +92,7 @@ async def run_swarm(task: str, settings: Settings, out: str, agents: int = 4, mi
                 shutil.copytree(files, workdir)
             else:
                 os.makedirs(workdir)
-            tools = WorkerTools(workdir, forum, name)
+            tools = WorkerTools(workdir, forum, name, settings.vision)
             if repo:
                 RepoTools(tools, repo, review)
             return Agent(name, llms[i % len(llms)], tools, system.format(name=name, n=agents), task,
