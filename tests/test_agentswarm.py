@@ -138,7 +138,8 @@ def test_run_with_repo_review_and_check(tmp_path, monkeypatch):
     res = asyncio.run(run_swarm("build it", settings, out, agents=2, minutes=5, max_steps=60, files=str(tmp_path / "seed"),
                                 check="test -f README.md", llms=[Collaborators(out)]))
     assert {s["stop"] for s in res["agents"]} == {"finished"} and res["merged"] == 2
-    assert sorted(os.listdir(os.path.join(out, "result")))[-3:] == ["README.md", "agent00.txt", "agent01.txt"]
+    assert sorted(os.listdir(os.path.join(out, "result")))[-4:] == ["README.md", "TASK.md", "agent00.txt", "agent01.txt"]
+    assert open(os.path.join(out, "result", "TASK.md")).read() == "build it"
     for root, _, names in os.walk(out):   # the key never reaches anything the run writes
         for n in names:
             with open(os.path.join(root, n), "rb") as f:

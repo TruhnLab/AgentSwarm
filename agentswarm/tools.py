@@ -12,6 +12,7 @@ import os
 import re
 
 from .forum import Forum
+from .repo import TASK_FILE
 
 MAX_OUTPUT = 12_000   # chars of tool output kept (head + tail)
 MAX_IMAGE_BYTES = 8_000_000
@@ -221,9 +222,12 @@ class RepoTools:
     async def pr_open(self, branch, title, body):
         if not await self.repo.branch_exists(branch):
             return f"error: branch {branch!r} not found on origin; push it first (git push -u origin {branch})"
-        files = "\n".join(f"{s}\t{p}" for s, p in await self.repo.changed_files(branch))
-        if not files:
+        changed = await self.repo.changed_files(branch)
+        if not changed:
             return "error: branch has no changes relative to main"
+        if any(p == TASK_FILE for _, p in changed):
+            return f"error: {TASK_FILE} is the task as given and cannot be changed; remove that change from the branch"
+        files = "\n".join(f"{s}\t{p}" for s, p in changed)
         pid = self.forum.pr_open(self.agent, branch, title, body, files)
         self.forum.post(self.agent, f"PR #{pid} opened: {title}", f"branch {branch}\n{body}\n\nfiles:\n{files}")
         need = " It needs a review from another agent before merging." if self.require_review else ""

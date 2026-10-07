@@ -8,6 +8,7 @@ import shutil
 import tempfile
 
 MERGED, CONFLICT, CI_FAILED = "merged", "conflict", "ci_failed"
+TASK_FILE = "TASK.md"   # the task prompt, verbatim, in the repository: agents cite it, PRs may not change it
 
 
 async def sh(cmd: str, cwd: str, env: dict | None = None) -> tuple[int, str]:
@@ -36,12 +37,15 @@ class SharedRepo:
         self.check_cmd = check_cmd
         self.lock = asyncio.Lock()
 
-    async def init(self, files_dir: str | None = None):
-        """Create the repo; `files_dir` (optional) is copied in as the starting state."""
+    async def init(self, files_dir: str | None = None, task: str | None = None):
+        """Create the repo; `files_dir` (optional) is copied in as the starting state, the task text goes in as TASK.md."""
         await must(f"git init -q --bare -b main {self.bare}", ".")
         await must(f"git clone -q {self.bare} {self.main}", ".")
         if files_dir:
             shutil.copytree(files_dir, self.main, dirs_exist_ok=True, ignore=shutil.ignore_patterns(".git"))
+        if task is not None:
+            with open(os.path.join(self.main, TASK_FILE), "w") as f:
+                f.write(task)
         await must("git add -A && git commit -q --allow-empty -m seed && git push -q origin HEAD:main", self.main, identity("seed"))
 
     async def clone(self, workdir: str, agent: str):

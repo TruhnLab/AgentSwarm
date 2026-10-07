@@ -86,6 +86,8 @@ runs/<name>/
   `forum_read`. New forum posts are appended to each tool result, so nobody has to poll.
 - With a vision model (`SWARM_VISION=1`), agents also get `view_image` and are told to look at the plots they
   make: the image is attached to their next message.
+- The task text is committed as `TASK.md` on main (or placed in each workspace without a repository), so the
+  agents can re-read and cite it; a pull request that changes it is refused.
 - With the shared repository, each workspace is a clone. Agents push branches and use `pr_open`, `pr_list`,
   `pr_diff`, `pr_review`, `pr_merge`. A merge needs another agent's approval and the check command passing
   on the merged tree; checks run in parallel, the push to main is serialised.

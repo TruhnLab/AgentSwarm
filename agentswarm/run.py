@@ -20,7 +20,7 @@ from .agent import Agent
 from .config import Settings
 from .forum import Forum
 from .llm import LLM
-from .repo import SharedRepo
+from .repo import TASK_FILE, SharedRepo
 from .tools import RepoTools, WorkerTools
 
 LOG_FORMAT = "%(asctime)s %(name)s %(message)s"
@@ -44,6 +44,8 @@ summary numbers hide. Regenerate and inspect the plots after every substantial c
 
 REPO_PROTOCOL = """
 Shared repository: your working directory is a clone of the shared repo (origin, branch main); every agent has one.
+- `TASK.md` on main is the task as given, verbatim: re-read it, cite it in reviews (a PR that does not serve it
+  should not merge). It cannot be changed.
 - Work on a feature branch (git checkout -b <name>), commit, `git push -u origin <name>`, then `pr_open`.
 - {merge_rule}
 - Review others' open PRs promptly (`pr_list`, `pr_diff`, `pr_review`); the swarm only progresses if PRs get merged.
@@ -78,7 +80,7 @@ async def run_swarm(task: str, settings: Settings, out: str, agents: int = 4, mi
         system, repo = SYSTEM + (VISION_PROTOCOL if settings.vision else ""), None
         if use_repo:
             repo = SharedRepo(out, check)
-            await repo.init(files)
+            await repo.init(files, task)
             rule = ("Merging (`pr_merge`) requires another agent's approval (`pr_review`)" if review else "Merge with `pr_merge`")
             rule += f" and the check command `{check}` passing on the merged tree." if check else "."
             system += REPO_PROTOCOL.format(merge_rule=rule)
@@ -88,10 +90,10 @@ async def run_swarm(task: str, settings: Settings, out: str, agents: int = 4, mi
             workdir = os.path.join(out, "work", name)
             if repo:
                 await repo.clone(workdir, name)
-            elif files:
-                shutil.copytree(files, workdir)
             else:
-                os.makedirs(workdir)
+                shutil.copytree(files, workdir) if files else os.makedirs(workdir)
+                with open(os.path.join(workdir, TASK_FILE), "w") as f:   # no shared repo: the task still sits in the workspace
+                    f.write(task)
             tools = WorkerTools(workdir, forum, name, settings.vision)
             if repo:
                 RepoTools(tools, repo, review)
