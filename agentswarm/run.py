@@ -60,7 +60,8 @@ async def run_swarm(task: str, settings: Settings, out: str, agents: int = 4, mi
     The agents use the endpoints in settings.base_urls round-robin."""
     if use_repo and not shutil.which("git"):
         raise SystemExit("git not found: install git or run with --no-repo")
-    if os.path.exists(os.path.join(out, "forum.sqlite")):
+    forum_path = os.path.join(out, "forum.sqlite")
+    if os.path.exists(forum_path) and os.path.getsize(forum_path) > 0:   # an empty file is a stray sqlite connect, not a run
         raise SystemExit(f"{out} already holds a run; choose another --out")
     os.makedirs(out, exist_ok=True)
     with open(os.path.join(out, "config.json"), "w") as f:   # no endpoint, no key: only what describes the run
